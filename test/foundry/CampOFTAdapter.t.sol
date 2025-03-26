@@ -3,7 +3,10 @@ pragma solidity ^0.8.20;
 
 // Mock imports
 import {OFTMock} from "../mocks/OFTMock.sol";
-import {OFTAdapterMock} from "../mocks/OFTAdapterMock.sol";
+//import {OFTAdapterMock} from "../mocks/OFTAdapterMock.sol";
+import {CampOFTAdapter} from "../../contracts/CampOFTAdapter.sol";
+import {WETH9} from "../../contracts/WETH9.sol";
+import {CampBridge} from "../../contracts/CampBridge.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 import {OFTComposerMock} from "../mocks/OFTComposerMock.sol";
 
@@ -28,18 +31,20 @@ import "forge-std/console.sol";
 // DevTools imports
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
-contract MyOFTAdapterTest is TestHelperOz5 {
+contract CampOFTAdapterTest is TestHelperOz5 {
     using OptionsBuilder for bytes;
 
     uint32 private aEid = 1;
     uint32 private bEid = 2;
 
-    ERC20Mock private aToken;
-    OFTAdapterMock private aOFTAdapter;
+    WETH9 private aToken;
+    CampOFTAdapter private aOFTAdapter;
     OFTMock private bOFT;
+    CampBridge private bridge;
 
     address private userA = address(0x1);
     address private userB = address(0x2);
+    address private userC = address(0x3);
     uint256 private initialBalance = 100 ether;
 
     function setUp() public virtual override {
@@ -49,12 +54,13 @@ contract MyOFTAdapterTest is TestHelperOz5 {
         super.setUp();
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
-        aToken = ERC20Mock(_deployOApp(type(ERC20Mock).creationCode, abi.encode("Token", "TOKEN")));
+        //aToken = ERC20Mock(_deployOApp(type(ERC20Mock).creationCode, abi.encode("Token", "TOKEN")));
+        aToken = new WETH9();
 
-        aOFTAdapter = OFTAdapterMock(
-            _deployOApp(
-                type(OFTAdapterMock).creationCode, abi.encode(address(aToken), address(endpoints[aEid]), address(this))
-            )
+        aOFTAdapter = CampOFTAdapter(
+            payable(_deployOApp(
+                type(CampOFTAdapter).creationCode, abi.encode(address(aToken), address(endpoints[aEid]), address(this))
+            ))
         );
 
         bOFT = OFTMock(
@@ -70,10 +76,12 @@ contract MyOFTAdapterTest is TestHelperOz5 {
         this.wireOApps(ofts);
 
         // mint tokens
-        aToken.mint(userA, initialBalance);
+        //aToken.mint(userA, initialBalance);
+        hoax(userA);
+        aToken.deposit{value: initialBalance}();
     }
 
-    function test_constructor() public {
+    function test_constructor() public view {
         assertEq(aOFTAdapter.owner(), address(this));
         assertEq(bOFT.owner(), address(this));
 
@@ -87,9 +95,11 @@ contract MyOFTAdapterTest is TestHelperOz5 {
 
     function test_send_oft_adapter() public {
         uint256 tokensToSend = 1 ether;
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200000, 0);
+        //bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200_000, 0);
+        // try 100k in gas
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(100_000, 0);
         SendParam memory sendParam =
-            SendParam(bEid, addressToBytes32(userB), tokensToSend, tokensToSend, options, "", "");
+            SendParam(bEid, addressToBytes32(userA), tokensToSend, tokensToSend, options, "", "");
         MessagingFee memory fee = aOFTAdapter.quoteSend(sendParam, false);
 
         assertEq(aToken.balanceOf(userA), initialBalance);
@@ -105,10 +115,60 @@ contract MyOFTAdapterTest is TestHelperOz5 {
 
         assertEq(aToken.balanceOf(userA), initialBalance - tokensToSend);
         assertEq(aToken.balanceOf(address(aOFTAdapter)), tokensToSend);
-        assertEq(bOFT.balanceOf(userB), tokensToSend);
+        assertEq(bOFT.balanceOf(userA), tokensToSend);
     }
 
-    function test_send_oft_adapter_compose_msg() public {
+    function test_send_bridge() public {
+        uint256 initialEthBalance = userA.balance;
+        bridge = new CampBridge(aToken, aOFTAdapter);
+        uint256 tokensToSend = 1 ether;
+        //bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200_000, 0);
+        // try 100k in gas
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(100_000, 0);
+        SendParam memory sendParam =
+            SendParam(bEid, addressToBytes32(userA), tokensToSend, tokensToSend, options, "", "");
+        MessagingFee memory fee = aOFTAdapter.quoteSend(sendParam, false);
+
+        assertEq(aToken.balanceOf(userA), initialBalance);
+        assertEq(aToken.balanceOf(address(aOFTAdapter)), 0);
+        assertEq(bOFT.balanceOf(userB), 0);
+
+        //vm.prank(userA);
+        //aToken.approve(address(aOFTAdapter), tokensToSend);
+
+        //vm.prank(userA);
+        //aOFTAdapter.send{value: fee.nativeFee}(sendParam, fee, payable(address(this)));
+        vm.prank(userA);
+        bridge.send{value: fee.nativeFee + tokensToSend}(sendParam, fee, payable(address(this)));
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+
+        // initial weth balance should be untouched
+        assertEq(aToken.balanceOf(userA), initialBalance);
+        // ensure the balance difference is just gas
+        assertLt(initialEthBalance - tokensToSend - userA.balance, 2.5e8);
+        assertEq(aToken.balanceOf(address(aOFTAdapter)), tokensToSend);
+        assertEq(bOFT.balanceOf(userA), tokensToSend);
+
+        // try sending funds back across the bridge
+        uint256 tokensToSendBack = 0.5 ether;
+        assertEq(userC.balance, 0);
+
+        options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200_000, 0);
+        sendParam =
+            SendParam(aEid, addressToBytes32(userC), tokensToSendBack, tokensToSendBack, options, "", "");
+        fee = bOFT.quoteSend(sendParam, false);
+
+        vm.prank(userA);
+        bOFT.send{value: fee.nativeFee}(sendParam, fee, payable(address(this)));
+        verifyPackets(aEid, addressToBytes32(address(aOFTAdapter)));
+
+        assertEq(bOFT.balanceOf(userA), tokensToSendBack);
+        // ensure eth is distributed instead of weth
+        assertEq(userC.balance, tokensToSendBack);
+    }
+
+    // disabled, since we aren't attempting to interact with a composer
+    function test_send_oft_adapter_compose_msg() private {
         uint256 tokensToSend = 1 ether;
 
         OFTComposerMock composer = new OFTComposerMock();

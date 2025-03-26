@@ -54,13 +54,19 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
+        'camp-v2-testnet': {
+            eid: EndpointId.CAMP_V2_TESTNET,
+            url: process.env.RPC_URL_CAMP || 'https://rpc-campnetwork.xyz/',
+            accounts,
+            oftAdapter: {
+                // address is pulled from the token deployed in the deploy script
+                tokenAddress: '0x0', // Set the token address for the OFT adapter
+            },
+        },
         'sepolia-testnet': {
             eid: EndpointId.SEPOLIA_V2_TESTNET,
             url: process.env.RPC_URL_SEPOLIA || 'https://rpc.sepolia.org/',
             accounts,
-            oftAdapter: {
-                tokenAddress: '0x0', // Set the token address for the OFT adapter
-            },
         },
         'avalanche-testnet': {
             eid: EndpointId.AVALANCHE_V2_TESTNET,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2015, 2016, 2017 Dapphub, modified by Topocount
 
-pragma solidity >=0.4.22 <0.9;
+pragma solidity >=0.7 <0.9;
 
 contract WETH9 {
     string public name = "Wrapped Camp";

@@ -5,7 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {OFT} from "@layerzerolabs/oft-evm/contracts/OFT.sol";
 
 // @dev WARNING: This is for testing purposes only
-contract MyOFTMock is OFT {
+contract CampOFTMock is OFT {
     constructor(string memory _name, string memory _symbol, address _lzEndpoint, address _delegate)
         OFT(_name, _symbol, _lzEndpoint, _delegate)
         Ownable(_delegate)

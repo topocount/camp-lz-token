@@ -2,7 +2,9 @@ import assert from 'assert'
 
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-const contractName = 'MyOFTAdapter'
+const tokenName = 'WETH9'
+const bridgeName = 'CampBridge'
+const contractName = 'CampOFTAdapter'
 
 const deploy: DeployFunction = async (hre) => {
     const { getNamedAccounts, deployments } = hre
@@ -41,18 +43,38 @@ const deploy: DeployFunction = async (hre) => {
         return
     }
 
-    const { address } = await deploy(contractName, {
+    const { address: wethAddress } = await deploy(tokenName, {
+        from: deployer,
+        log: true,
+        skipIfAlreadyDeployed: true,
+        waitConfirmations: 5,
+    })
+
+    console.log(`Deployed contract: ${wethAddress}, network: ${hre.network.name}, address: ${wethAddress}`)
+
+    const { address: oftAdapterAddress } = await deploy(contractName, {
         from: deployer,
         args: [
-            hre.network.config.oftAdapter.tokenAddress, // token address
+            wethAddress, // token address
             endpointV2Deployment.address, // LayerZero's EndpointV2 address
             deployer, // owner
         ],
         log: true,
-        skipIfAlreadyDeployed: false,
+        skipIfAlreadyDeployed: true,
+        waitConfirmations: 5,
     })
 
-    console.log(`Deployed contract: ${contractName}, network: ${hre.network.name}, address: ${address}`)
+    console.log(`Deployed contract: ${contractName}, network: ${hre.network.name}, address: ${oftAdapterAddress}`)
+
+    const { address: bridgeAddress } = await deploy(bridgeName, {
+        from: deployer,
+        args: [wethAddress, oftAdapterAddress],
+        log: true,
+        skipIfAlreadyDeployed: true,
+        waitConfirmations: 5,
+    })
+
+    console.log(`Deployed contract: ${bridgeName}, network: ${hre.network.name}, address: ${bridgeAddress}`)
 }
 
 deploy.tags = [contractName]
