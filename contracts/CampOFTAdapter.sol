@@ -32,6 +32,7 @@ contract CampOFTAdapter is OFTAdapter {
      * @param _to The address to credit the tokens to.
      * @param _amountLD The amount of tokens to credit in local decimals.
      * @dev _srcEid The source chain ID.
+     * @dev This sends gas tokens directly to the recipient and unwraps the adapted token
      * @return amountReceivedLD The amount of tokens ACTUALLY received in local decimals.
      *
      * @dev WARNING: The default OFTAdapter implementation assumes LOSSLESS transfers, ie. 1 token in, 1 token out.
@@ -43,15 +44,17 @@ contract CampOFTAdapter is OFTAdapter {
         uint256 _amountLD,
         uint32 /*_srcEid*/
     ) internal virtual override returns (uint256 amountReceivedLD) {
-        // @dev Unlock the tokens and transfer to the recipient.
-        //innerToken.safeTransfer(_to, _amountLD);
+        // @dev Unwrap the tokens and transfer to the recipient.
         WETH9(payable(address(innerToken))).withdraw(_amountLD);
         payable(_to).transfer(_amountLD);
-        // @dev In the case of NON-default OFTAdapter, the amountLD MIGHT not be == amountReceivedLD.
         return _amountLD;
     }
 
+    function sharedDecimals() public view virtual override returns (uint8) {
+        return 18;
+    }
+
     receive() external payable {
-        // TODO utlize tstore to prevent unauthorized sends
+        // TODO utilize tstore to prevent unauthorized sends AI!
     }
 }
