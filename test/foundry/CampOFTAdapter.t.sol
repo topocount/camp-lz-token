@@ -249,5 +249,19 @@ contract CampOFTAdapterTest is TestHelperOz5 {
         assertEq(composer.extraData(), composerMsg_); // default to setting the extraData to the message as well to test
     }
 
-    // TODO import the rest of oft tests?
+    function test_random_receives_revert() public {
+        // Try to send ETH directly to the adapter contract
+        vm.expectRevert("Unauthorized sender");
+        (bool success, ) = address(aOFTAdapter).call{value: 1 ether}("");
+        assertFalse(success);
+        
+        // Try sending from a random user
+        vm.prank(userB);
+        vm.expectRevert("Unauthorized sender");
+        (success, ) = address(aOFTAdapter).call{value: 1 ether}("");
+        assertFalse(success);
+        
+        // Verify that the contract balance remains zero
+        assertEq(address(aOFTAdapter).balance, 0);
+    }
 }
