@@ -118,6 +118,41 @@ contract CampOFTAdapterTest is TestHelperOz5 {
         assertEq(bOFT.balanceOf(userA), tokensToSend);
     }
 
+    function test_fuzz_send_bridge(address sender, address recipient, uint256 amount) public {
+        // Bound the amount to be between 0.1 ether and 10 ether
+        amount = bound(amount, 0.1 ether, 10 ether);
+        
+        // Ensure sender and recipient are valid addresses
+        vm.assume(sender != address(0) && recipient != address(0));
+        vm.assume(sender != address(aToken) && sender != address(aOFTAdapter) && sender != address(bOFT));
+        vm.assume(recipient != address(aToken) && recipient != address(aOFTAdapter) && recipient != address(bOFT));
+        
+        // Fund the sender
+        vm.deal(sender, 1000 ether);
+        
+        // Create a new bridge
+        bridge = new CampBridge(aToken, aOFTAdapter);
+        
+        uint256 initialEthBalance = sender.balance;
+        
+        // Set up options and parameters
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(100_000, 0);
+        SendParam memory sendParam =
+            SendParam(bEid, addressToBytes32(recipient), amount, amount, options, "", "");
+        MessagingFee memory fee = aOFTAdapter.quoteSend(sendParam, false);
+        
+        // Execute the bridge send
+        vm.prank(sender);
+        bridge.send{value: fee.nativeFee + amount}(sendParam, fee, payable(address(this)));
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+        
+        // Verify balances
+        assertEq(aToken.balanceOf(address(aOFTAdapter)), amount);
+        assertEq(bOFT.balanceOf(recipient), amount);
+        // Ensure the balance difference is just gas
+        assertLt(initialEthBalance - amount - sender.balance, 2.5e8);
+    }
+
     function test_send_bridge() public {
         uint256 initialEthBalance = userA.balance;
         bridge = new CampBridge(aToken, aOFTAdapter);
