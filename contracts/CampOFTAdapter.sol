@@ -22,6 +22,10 @@ import { IOFT, SendParam, OFTLimit, OFTReceipt, OFTFeeDetail, MessagingReceipt, 
 contract CampOFTAdapter is OFTAdapter {
     using SafeERC20 for IERC20;
 
+    // Storage slot for authorized senders
+    uint256 private constant AUTHORIZED_SENDER_SLOT = 42069;
+    
+
     constructor(address _token, address _lzEndpoint, address _delegate)
         OFTAdapter(_token, _lzEndpoint, _delegate)
         Ownable(_delegate)
@@ -44,9 +48,22 @@ contract CampOFTAdapter is OFTAdapter {
         uint256 _amountLD,
         uint32 /*_srcEid*/
     ) internal virtual override returns (uint256 amountReceivedLD) {
+
+        // Enable this contract to receive ETH from the WETH contract during withdraw
+        assembly {
+            tstore(AUTHORIZED_SENDER_SLOT, 1)
+        }
+        
         // @dev Unwrap the tokens and transfer to the recipient.
         WETH9(payable(address(innerToken))).withdraw(_amountLD);
+
+        // Disable the authorization after the operation is complete
+        assembly {
+            tstore(AUTHORIZED_SENDER_SLOT, 0)
+        }
+        
         payable(_to).transfer(_amountLD);
+        
         return _amountLD;
     }
 
@@ -54,7 +71,18 @@ contract CampOFTAdapter is OFTAdapter {
         return 18;
     }
 
+    /**
+     * @dev Allows the contract to receive ETH, but only from this contract
+     * Uses transient storage (tstore) to prevent unauthorized sends
+     */
     receive() external payable {
-        // TODO utilize tstore to prevent unauthorized sends AI!
+        bool canReceive;
+        assembly {
+            canReceive := tload(AUTHORIZED_SENDER_SLOT)
+        }
+        if (!canReceive) {
+            // Revert if sender is not authorized
+            revert("Unauthorized sender");
+        }
     }
 }

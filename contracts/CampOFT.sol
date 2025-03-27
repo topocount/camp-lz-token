@@ -9,4 +9,9 @@ contract CampOFT is OFT {
         OFT(_name, _symbol, _lzEndpoint, _delegate)
         Ownable(_delegate)
     {}
+
+    function sharedDecimals() public view virtual override returns (uint8) {
+        return 18;
+    }
+
 }

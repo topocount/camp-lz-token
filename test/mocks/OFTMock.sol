@@ -56,4 +56,9 @@ contract OFTMock is OFT {
     ) public view returns (bytes memory message, bytes memory options) {
         return _buildMsgAndOptions(_sendParam, _amountToCreditLD);
     }
+
+    function sharedDecimals() public view virtual override returns (uint8) {
+        return 18;
+    }
+
 }
