@@ -6,8 +6,8 @@ import "forge-std/Test.sol";
 
 contract WETH9Test is Test {
     WETH9 private weth;
-    address private userA = address(0x1);
-    address private userB = address(0x2);
+    address private userA = makeAddr('userA');
+    address private userB = makeAddr('userB');
     uint256 private initialBalance = 100 ether;
 
     function setUp() public {
@@ -50,19 +50,17 @@ contract WETH9Test is Test {
         uint256 depositAmount = 1 ether;
         
         // First deposit
-        vm.prank(userA);
         weth.deposit{value: depositAmount}();
         
-        uint256 initialUserBalance = userA.balance;
+        uint256 initialUserBalance = address(this).balance;
         
         // Then withdraw
-        vm.prank(userA);
         weth.withdraw(depositAmount);
         
-        assertEq(weth.balanceOf(userA), 0);
+        assertEq(weth.balanceOf(address(this)), 0);
         assertEq(weth.totalSupply(), 0);
         assertEq(address(weth).balance, 0);
-        assertEq(userA.balance, initialUserBalance + depositAmount);
+        assertEq(address(this).balance, initialUserBalance + depositAmount);
     }
 
     function test_withdraw_insufficient_balance() public {
@@ -157,11 +155,13 @@ contract WETH9Test is Test {
         assertEq(weth.totalSupply(), amount);
         
         // Withdraw
-        vm.prank(userA);
+        vm.startPrank(userA);
         weth.withdraw(amount);
         
         assertEq(weth.balanceOf(userA), 0);
         assertEq(weth.totalSupply(), 0);
         assertEq(userA.balance, amount);
     }
+
+    receive() external payable {}
 }

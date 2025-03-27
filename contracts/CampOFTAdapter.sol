@@ -15,9 +15,6 @@ import { IOFT, SendParam, OFTLimit, OFTReceipt, OFTFeeDetail, MessagingReceipt, 
  * @dev For existing ERC20 tokens, this can be used to convert the token to crosschain compatibility.
  * @dev WARNING: ONLY 1 of these should exist for a given global mesh,
  * unless you make a NON-default implementation of OFT and needs to be done very carefully.
- * @dev WARNING: The default OFTAdapter implementation assumes LOSSLESS transfers, ie. 1 token in, 1 token out.
- * IF the 'innerToken' applies something like a transfer fee, the default will NOT work...
- * a pre/post balance check will need to be done to calculate the amountSentLD/amountReceivedLD.
  */
 contract CampOFTAdapter is OFTAdapter {
     using SafeERC20 for IERC20;
@@ -38,10 +35,6 @@ contract CampOFTAdapter is OFTAdapter {
      * @dev _srcEid The source chain ID.
      * @dev This sends gas tokens directly to the recipient and unwraps the adapted token
      * @return amountReceivedLD The amount of tokens ACTUALLY received in local decimals.
-     *
-     * @dev WARNING: The default OFTAdapter implementation assumes LOSSLESS transfers, ie. 1 token in, 1 token out.
-     * IF the 'innerToken' applies something like a transfer fee, the default will NOT work...
-     * a pre/post balance check will need to be done to calculate the amountReceivedLD.
      */
     function _credit(
         address _to,
