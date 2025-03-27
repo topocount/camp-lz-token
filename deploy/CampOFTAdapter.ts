@@ -50,7 +50,7 @@ const deploy: DeployFunction = async (hre) => {
         waitConfirmations: 5,
     })
 
-    console.log(`Deployed contract: ${wethAddress}, network: ${hre.network.name}, address: ${wethAddress}`)
+    console.log(`Deployed contract: ${tokenName}, network: ${hre.network.name}, address: ${wethAddress}`)
 
     const { address: oftAdapterAddress } = await deploy(contractName, {
         from: deployer,

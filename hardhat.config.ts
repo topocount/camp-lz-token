@@ -14,6 +14,7 @@ import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types'
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 
 import './type-extensions'
+import './tasks/lz-send'
 
 // Set your preferred authentication method
 //
@@ -57,6 +58,15 @@ const config: HardhatUserConfig = {
         'camp-v2-testnet': {
             eid: EndpointId.CAMP_V2_TESTNET,
             url: process.env.RPC_URL_CAMP || 'https://rpc-campnetwork.xyz/',
+            accounts,
+            oftAdapter: {
+                // address is pulled from the token deployed in the deploy script
+                tokenAddress: '0x0', // Set the token address for the OFT adapter
+            },
+        },
+        'op-sepolia-testnet': {
+            eid: EndpointId.OPTSEP_V2_TESTNET,
+            url: process.env.RPC_URL_OPTIMISM_SEPOLIA || 'https://sepolia.optimism.io/',
             accounts,
             oftAdapter: {
                 // address is pulled from the token deployed in the deploy script

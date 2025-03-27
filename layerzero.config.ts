@@ -17,10 +17,17 @@ import type { OAppOmniGraphHardhat, OmniPointHardhat } from '@layerzerolabs/tool
  *         },
  *     },
  */
+const opSepContract: OmniPointHardhat = {
+    eid: EndpointId.OPTSEP_V2_TESTNET,
+    contractName: 'CampOFTAdapter',
+}
+
+/*
 const camp2Contract: OmniPointHardhat = {
     eid: EndpointId.CAMP_V2_TESTNET,
     contractName: 'CampOFTAdapter',
 }
+*/
 
 const sepoliaContract: OmniPointHardhat = {
     eid: EndpointId.SEPOLIA_V2_TESTNET,
@@ -30,7 +37,8 @@ const sepoliaContract: OmniPointHardhat = {
 const config: OAppOmniGraphHardhat = {
     contracts: [
         {
-            contract: camp2Contract,
+            //contract: camp2Contract,
+            contract: opSepContract,
         },
         {
             contract: sepoliaContract,
@@ -38,12 +46,14 @@ const config: OAppOmniGraphHardhat = {
     ],
     connections: [
         {
-            from: camp2Contract,
+            //from: camp2Contract,
+            from: opSepContract,
             to: sepoliaContract,
         },
         {
             from: sepoliaContract,
-            to: camp2Contract,
+            to: opSepContract,
+            //to: camp2Contract,
         },
     ],
 }
