@@ -58,9 +58,12 @@ contract CampOFTAdapterTest is TestHelperOz5 {
         aToken = new WETH9();
 
         aOFTAdapter = CampOFTAdapter(
-            payable(_deployOApp(
-                type(CampOFTAdapter).creationCode, abi.encode(address(aToken), address(endpoints[aEid]), address(this))
-            ))
+            payable(
+                _deployOApp(
+                    type(CampOFTAdapter).creationCode,
+                    abi.encode(address(aToken), address(endpoints[aEid]), address(this))
+                )
+            )
         );
 
         bOFT = OFTMock(
@@ -123,36 +126,64 @@ contract CampOFTAdapterTest is TestHelperOz5 {
         // capped at 15 ether since there appears to be a bug in the provided mocks that mishandles the amountReceived
         // on the other side of the bridge beyond this rough value
         amount = bound(amount, 0.1 ether, 15 ether);
-        
+
         // Ensure sender and recipient are valid addresses
         vm.assume(sender != address(0) && recipient != address(0));
         vm.assume(sender != address(aToken) && sender != address(aOFTAdapter) && sender != address(bOFT));
         vm.assume(recipient != address(aToken) && recipient != address(aOFTAdapter) && recipient != address(bOFT));
-        
+
         // Fund the sender
         vm.deal(sender, amount * 10);
-        
+
         // Create a new bridge
         bridge = new CampBridge(aToken, aOFTAdapter);
-        
+
         uint256 initialEthBalance = sender.balance;
-        
+
         // Set up options and parameters
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(100_000, 0);
-        SendParam memory sendParam =
-            SendParam(bEid, addressToBytes32(recipient), amount, amount, options, "", "");
+        SendParam memory sendParam = SendParam(bEid, addressToBytes32(recipient), amount, amount, options, "", "");
         MessagingFee memory fee = aOFTAdapter.quoteSend(sendParam, false);
-        
+
         // Execute the bridge send
         vm.prank(sender);
         bridge.send{value: fee.nativeFee + amount}(sendParam, fee, payable(address(this)));
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
-        
+
         // Verify balances
         assertEq(aToken.balanceOf(address(aOFTAdapter)), amount);
         assertEq(bOFT.balanceOf(recipient), amount);
         // Ensure the balance difference is just gas
         assertLt(initialEthBalance - amount - sender.balance, 2.5e8);
+    }
+
+    function test_fail_send_bridge_invalid_amount_revert(uint32 variance, bool add) public {
+        vm.assume(variance != 0);
+        bridge = new CampBridge(aToken, aOFTAdapter);
+        uint256 tokensToSend = 1 ether;
+        //bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200_000, 0);
+        // try 100k in gas
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(100_000, 0);
+        SendParam memory sendParam =
+            SendParam(bEid, addressToBytes32(userA), tokensToSend, tokensToSend, options, "", "");
+        MessagingFee memory fee = aOFTAdapter.quoteSend(sendParam, false);
+
+        assertEq(aToken.balanceOf(userA), initialBalance);
+        assertEq(aToken.balanceOf(address(aOFTAdapter)), 0);
+        assertEq(bOFT.balanceOf(userB), 0);
+
+        //vm.prank(userA);
+        //aToken.approve(address(aOFTAdapter), tokensToSend);
+
+        //vm.prank(userA);
+        //aOFTAdapter.send{value: fee.nativeFee}(sendParam, fee, payable(address(this)));
+        vm.prank(userA);
+        vm.expectRevert(CampBridge.Bridge_InvalidAmount.selector);
+        if (add) {
+            bridge.send{value: fee.nativeFee + tokensToSend + variance}(sendParam, fee, payable(address(this)));
+        } else {
+            bridge.send{value: fee.nativeFee + tokensToSend - variance}(sendParam, fee, payable(address(this)));
+        }
     }
 
     function test_send_bridge() public {
@@ -191,8 +222,7 @@ contract CampOFTAdapterTest is TestHelperOz5 {
         assertEq(userC.balance, 0);
 
         options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(200_000, 0);
-        sendParam =
-            SendParam(aEid, addressToBytes32(userC), tokensToSendBack, tokensToSendBack, options, "", "");
+        sendParam = SendParam(aEid, addressToBytes32(userC), tokensToSendBack, tokensToSendBack, options, "", "");
         fee = bOFT.quoteSend(sendParam, false);
 
         vm.prank(userA);
@@ -255,12 +285,12 @@ contract CampOFTAdapterTest is TestHelperOz5 {
         // Try to send ETH directly to the adapter contract
         vm.expectRevert("Unauthorized sender");
         payable(address(aOFTAdapter)).transfer(1 ether);
-        
+
         // Try sending from a random user
         vm.prank(userB);
         vm.expectRevert("Unauthorized sender");
         payable(address(aOFTAdapter)).transfer(1 ether);
-        
+
         // Verify that the contract balance remains zero
         assertEq(address(aOFTAdapter).balance, 0);
     }

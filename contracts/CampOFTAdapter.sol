@@ -3,10 +3,18 @@ pragma solidity ^0.8.22;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {OFTAdapter} from "@layerzerolabs/oft-evm/contracts/OFTAdapter.sol";
-import { IERC20Metadata, IERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20Metadata, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {WETH9} from "./WETH9.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IOFT, SendParam, OFTLimit, OFTReceipt, OFTFeeDetail, MessagingReceipt, MessagingFee } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    IOFT,
+    SendParam,
+    OFTLimit,
+    OFTReceipt,
+    OFTFeeDetail,
+    MessagingReceipt,
+    MessagingFee
+} from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 
 /**
  * @title OFTAdapter Contract
@@ -21,7 +29,6 @@ contract CampOFTAdapter is OFTAdapter {
 
     // Storage slot for authorized senders
     uint256 private constant AUTHORIZED_SENDER_SLOT = 42069;
-    
 
     constructor(address _token, address _lzEndpoint, address _delegate)
         OFTAdapter(_token, _lzEndpoint, _delegate)
@@ -36,17 +43,17 @@ contract CampOFTAdapter is OFTAdapter {
      * @dev This sends gas tokens directly to the recipient and unwraps the adapted token
      * @return amountReceivedLD The amount of tokens ACTUALLY received in local decimals.
      */
-    function _credit(
-        address _to,
-        uint256 _amountLD,
-        uint32 /*_srcEid*/
-    ) internal virtual override returns (uint256 amountReceivedLD) {
-
+    function _credit(address _to, uint256 _amountLD, uint32 /*_srcEid*/ )
+        internal
+        virtual
+        override
+        returns (uint256 amountReceivedLD)
+    {
         // Enable this contract to receive ETH from the WETH contract during withdraw
         assembly {
             tstore(AUTHORIZED_SENDER_SLOT, 1)
         }
-        
+
         // @dev Unwrap the tokens and transfer to the recipient.
         WETH9(payable(address(innerToken))).withdraw(_amountLD);
 
@@ -54,9 +61,9 @@ contract CampOFTAdapter is OFTAdapter {
         assembly {
             tstore(AUTHORIZED_SENDER_SLOT, 0)
         }
-        
+
         payable(_to).transfer(_amountLD);
-        
+
         return _amountLD;
     }
 

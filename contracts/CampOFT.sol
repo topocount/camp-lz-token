@@ -13,5 +13,4 @@ contract CampOFT is OFT {
     function sharedDecimals() public view virtual override returns (uint8) {
         return 18;
     }
-
 }
