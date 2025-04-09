@@ -34,7 +34,7 @@ task('lz:oft:send', 'Sends tokens from either OFT or OFTAdapter')
         // Get the contract factories
         const oftDeployment =
             hre.network.name === 'camp-v2-testnet' || hre.network.name === 'op-sepolia-testnet'
-                ? await deployments.get('CampOFTAdapter')
+                ? await deployments.get('NativeCampOFTAdapter')
                 : await deployments.get('CampOFT')
 
         const [signer] = await ethers.getSigners()
@@ -63,22 +63,24 @@ task('lz:oft:send', 'Sends tokens from either OFT or OFTAdapter')
         // Get the quote for the send operation
         const feeQuote = await oft.quoteSend(sendParam, false)
         const nativeFee = feeQuote.nativeFee
+        console.log({ amount, nativeFee })
 
         console.log(`sending ${taskArgs.amount} token(s) to network ${getNetworkNameForEid(eidB)} (${eidB})`)
 
-        const ERC20Factory = await ethers.getContractFactory('WETH9')
         const innerTokenAddress = await oft.token()
 
         // // If the token address !== address(this), then this is an OFT Adapter
         if (innerTokenAddress !== oft.address) {
-            const innerToken = ERC20Factory.attach(innerTokenAddress)
-
-            // Approve the amount to be spent by the oft contract
-            await innerToken.approve(oftDeployment.address, amount)
+            console.log('using adapter')
+            const r = await oft.send(sendParam, { nativeFee: nativeFee, lzTokenFee: 0 }, signer.address, {
+                value: nativeFee.add(amount),
+            })
+            console.log(`Send tx initiated. See: https://layerzeroscan.com/tx/${r.hash}`)
+        } else {
+            console.log('using oft')
+            const r = await oft.send(sendParam, { nativeFee: nativeFee, lzTokenFee: 0 }, signer.address, {
+                value: nativeFee,
+            })
+            console.log(`Send tx initiated. See: https://layerzeroscan.com/tx/${r.hash}`)
         }
-
-        const r = await oft.send(sendParam, { nativeFee: nativeFee, lzTokenFee: 0 }, signer.address, {
-            value: nativeFee,
-        })
-        console.log(`Send tx initiated. See: https://layerzeroscan.com/tx/${r.hash}`)
     })
