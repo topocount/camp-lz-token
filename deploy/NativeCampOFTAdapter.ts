@@ -2,9 +2,7 @@ import assert from 'assert'
 
 import { type DeployFunction } from 'hardhat-deploy/types'
 
-const tokenName = 'WETH9'
-const bridgeName = 'CampBridge'
-const contractName = 'CampOFTAdapter'
+const contractName = 'NativeCampOFTAdapter'
 
 const deploy: DeployFunction = async (hre) => {
     const { getNamedAccounts, deployments } = hre
@@ -35,27 +33,9 @@ const deploy: DeployFunction = async (hre) => {
     // }
     const endpointV2Deployment = await hre.deployments.get('EndpointV2')
 
-    // The token address must be defined in hardhat.config.ts
-    // If the token address is not defined, the deployment will log a warning and skip the deployment
-    if (hre.network.config.oftAdapter == null) {
-        console.warn(`oftAdapter not configured on network config, skipping OFTWrapper deployment`)
-
-        return
-    }
-
-    const { address: wethAddress } = await deploy(tokenName, {
-        from: deployer,
-        log: true,
-        skipIfAlreadyDeployed: true,
-        waitConfirmations: 5,
-    })
-
-    console.log(`Deployed contract: ${tokenName}, network: ${hre.network.name}, address: ${wethAddress}`)
-
     const { address: oftAdapterAddress } = await deploy(contractName, {
         from: deployer,
         args: [
-            wethAddress, // token address
             endpointV2Deployment.address, // LayerZero's EndpointV2 address
             deployer, // owner
         ],
@@ -65,16 +45,6 @@ const deploy: DeployFunction = async (hre) => {
     })
 
     console.log(`Deployed contract: ${contractName}, network: ${hre.network.name}, address: ${oftAdapterAddress}`)
-
-    const { address: bridgeAddress } = await deploy(bridgeName, {
-        from: deployer,
-        args: [wethAddress, oftAdapterAddress],
-        log: true,
-        skipIfAlreadyDeployed: true,
-        waitConfirmations: 5,
-    })
-
-    console.log(`Deployed contract: ${bridgeName}, network: ${hre.network.name}, address: ${bridgeAddress}`)
 }
 
 deploy.tags = [contractName]
